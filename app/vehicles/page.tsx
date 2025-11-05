@@ -1,0 +1,227 @@
+"use client";
+import { useState, useEffect } from "react";
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Trash2, Edit3, Check, X, PlusCircle } from "lucide-react";
+
+interface Vehicle {
+  id: string;
+  model: string;
+  plate: string;
+  kmStart: number;
+  lastUpdate?: { seconds: number };
+}
+
+export default function VehiclesPage() {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [model, setModel] = useState("");
+  const [plate, setPlate] = useState("");
+  const [kmStart, setKmStart] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editModel, setEditModel] = useState("");
+  const [editPlate, setEditPlate] = useState("");
+  const [editKmStart, setEditKmStart] = useState("");
+
+  // 🔹 Carregar veículos
+  async function loadVehicles() {
+    const querySnapshot = await getDocs(collection(db, "vehicles"));
+    const data = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Vehicle[];
+    setVehicles(data);
+  }
+
+  // 🔹 Adicionar veículo
+  async function addVehicle(e: any) {
+    e.preventDefault();
+    if (!model || !plate || !kmStart) return;
+    await addDoc(collection(db, "vehicles"), {
+      model,
+      plate,
+      kmStart: parseFloat(kmStart),
+      lastUpdate: new Date(),
+    });
+    setModel("");
+    setPlate("");
+    setKmStart("");
+    loadVehicles();
+  }
+
+  // 🔹 Remover veículo
+  async function removeVehicle(id: string) {
+    await deleteDoc(doc(db, "vehicles", id));
+    loadVehicles();
+  }
+
+  // 🔹 Salvar edição
+  async function saveEdit(id: string) {
+    if (!editModel || !editPlate || !editKmStart) return;
+    await updateDoc(doc(db, "vehicles", id), {
+      model: editModel,
+      plate: editPlate,
+      kmStart: parseFloat(editKmStart),
+      lastUpdate: new Date(),
+    });
+    setEditingId(null);
+    loadVehicles();
+  }
+
+  useEffect(() => {
+    loadVehicles();
+  }, []);
+
+  // 🔹 Formatador de data e hora
+  function formatTimestamp(timestamp?: { seconds: number }) {
+    if (!timestamp) return "-";
+    const date = new Date(timestamp.seconds * 1000);
+    return date.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return (
+    <div className="space-y-8">
+      <h1 className="text-3xl font-bold text-gray-900">🚗 Veículos</h1>
+      <p className="text-gray-600">
+        Gerencie os veículos do <strong>GrupoMM</strong> — com quilometragem e data da última atualização automática.
+      </p>
+
+      {/* 🔸 Formulário */}
+      <form
+        onSubmit={addVehicle}
+        className="bg-black text-white p-6 rounded-lg grid sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        <input
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          placeholder="Modelo"
+          className="border border-gray-700 rounded px-3 py-2 bg-black text-yellow-400 placeholder:text-gray-400 focus:ring-1 focus:ring-yellow-400 focus:outline-none"
+        />
+        <input
+          value={plate}
+          onChange={(e) => setPlate(e.target.value)}
+          placeholder="Placa"
+          className="border border-gray-700 rounded px-3 py-2 bg-black text-yellow-400 placeholder:text-gray-400 focus:ring-1 focus:ring-yellow-400 focus:outline-none"
+        />
+        <input
+          value={kmStart}
+          onChange={(e) => setKmStart(e.target.value)}
+          placeholder="Km Inicial"
+          type="number"
+          className="border border-gray-700 rounded px-3 py-2 bg-black text-yellow-400 placeholder:text-gray-400 focus:ring-1 focus:ring-yellow-400 focus:outline-none"
+        />
+        <button
+          type="submit"
+          className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded px-4 py-2 flex items-center justify-center gap-2 col-span-full sm:col-span-1 lg:col-span-1"
+        >
+          <PlusCircle size={18} /> Adicionar
+        </button>
+      </form>
+
+      {/* 🔸 Tabela */}
+      <div className="overflow-x-auto bg-white shadow-lg rounded-lg">
+        <table className="min-w-full text-sm">
+          <thead className="bg-black text-yellow-400 uppercase text-xs">
+            <tr>
+              <th className="py-3 px-4 text-left">Modelo</th>
+              <th className="py-3 px-4 text-left">Placa</th>
+              <th className="py-3 px-4 text-left">Km Atual</th>
+              <th className="py-3 px-4 text-left">Última Atualização</th>
+              <th className="py-3 px-4 text-center w-32">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vehicles.map((v) => (
+              <tr key={v.id} className="border-b hover:bg-gray-50 transition duration-100">
+                <td className="py-3 px-4">
+                  {editingId === v.id ? (
+                    <input
+                      className="border rounded px-2 py-1 w-full bg-black text-yellow-400"
+                      value={editModel}
+                      onChange={(e) => setEditModel(e.target.value)}
+                    />
+                  ) : (
+                    v.model
+                  )}
+                </td>
+                <td className="py-3 px-4">
+                  {editingId === v.id ? (
+                    <input
+                      className="border rounded px-2 py-1 w-full bg-black text-yellow-400"
+                      value={editPlate}
+                      onChange={(e) => setEditPlate(e.target.value)}
+                    />
+                  ) : (
+                    v.plate
+                  )}
+                </td>
+                <td className="py-3 px-4">
+                  {editingId === v.id ? (
+                    <input
+                      className="border rounded px-2 py-1 w-full bg-black text-yellow-400"
+                      type="number"
+                      value={editKmStart}
+                      onChange={(e) => setEditKmStart(e.target.value)}
+                    />
+                  ) : (
+                    `${v.kmStart?.toLocaleString("pt-BR")} km`
+                  )}
+                </td>
+                <td className="py-3 px-4">
+                  {v.lastUpdate ? formatTimestamp(v.lastUpdate) : "-"}
+                </td>
+                <td className="py-3 px-4 text-center">
+                  {editingId === v.id ? (
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={() => saveEdit(v.id)}
+                        className="text-green-600 hover:text-green-800"
+                      >
+                        <Check size={18} />
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingId(v.id);
+                          setEditModel(v.model);
+                          setEditPlate(v.plate);
+                          setEditKmStart(v.kmStart?.toString() || "");
+                        }}
+                        className="text-yellow-500 hover:text-yellow-600"
+                      >
+                        <Edit3 size={18} />
+                      </button>
+                      <button
+                        onClick={() => removeVehicle(v.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {vehicles.length === 0 && (
+        <p className="text-gray-500 text-sm text-center">Nenhum veículo cadastrado ainda.</p>
+      )}
+    </div>
+  );
+}
