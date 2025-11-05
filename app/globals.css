@@ -63,3 +63,18 @@ header {
   background-color: var(--color-dark);
   color: var(--color-light);
 }
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.fade-in {
+  animation: fade-in 1.2s ease-in-out forwards;
+}
